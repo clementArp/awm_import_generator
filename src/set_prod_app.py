@@ -49,6 +49,8 @@ COL_BYPASS_DESIGNATION_CLIENT = "Désignation Client"
 COL_BYPASS_DESCRIPTION_ARP = "Description ARP"
 COL_BYPASS_DESCRIPTION_CLIENT = "Description Client"
 COL_BYPASS_ALIAS = "Repère"
+COL_BYPASS_CHECK = "Check1"
+check_bypass_is_ok = lambda b: str(b.get(COL_BYPASS_CHECK, "")).strip().lower() in (1, "1", True, "true")
 
 TABLE_BUTTON = "T_RecapBtn"
 COL_BUTTON_NUM = "N°"
@@ -58,6 +60,8 @@ COL_BUTTON_DESIGNATION_CLIENT = "Désignation Client"
 COL_BUTTON_DESCRIPTION_ARP = "Description ARP"
 COL_BUTTON_DESCRIPTION_CLIENT = "Description Client"
 COL_BUTTON_ALIAS = "Repère"
+COL_BUTTON_CHECK = "Check1"
+check_button_is_ok = lambda b: str(b.get(COL_BUTTON_CHECK, "")).strip().lower() in (1, "1", True, "true")
 
 # JSON keys
 JSON_BYPASS_NUM = "num"
@@ -347,6 +351,9 @@ def build_buttons_bypass_json(data: Dict[str, Any], num_com: int) -> Dict[str, A
         module = bypass.get(COL_BYPASS_NUM_MODULE)
         if module is None:
             continue
+        if not check_bypass_is_ok(bypass):
+            print(f"Le bypass n°{bypass[COL_BYPASS_NUM]} est marqué comme non valide => ignoré.")
+            continue
 
         cfg = ensure_module_cfg(modules_cfg, module)
         json_bypasses.append({
@@ -362,6 +369,9 @@ def build_buttons_bypass_json(data: Dict[str, Any], num_com: int) -> Dict[str, A
             continue
         module = button.get(COL_BUTTON_NUM_MODULE)
         if module is None:
+            continue
+        if not check_button_is_ok(button):
+            print(f"Le bouton n°{button[COL_BUTTON_NUM]} est marqué comme non valide => ignoré.")
             continue
 
         cfg = ensure_module_cfg(modules_cfg, module)
@@ -443,10 +453,10 @@ def build_machines(modules_cfg: Dict[str, Dict[str, Any]]) -> Dict[int, Dict[str
                 "name_1": ask_input_str(f"Nom de la machine n°{num_machine} (langue 1) : "),
                 "name_2": ask_input_str(f"Nom de la machine n°{num_machine} (langue 2) : "),
                 "name_3": "",
-                "modules": [],
+                "ems": [],
             }
 
-        machines[num_machine]["modules"].append({
+        machines[num_machine]["ems"].append({
             "num": cfg["num_module"],
             "name_1": cfg.get("nom_langue_1", ""),
             "name_2": cfg.get("nom_langue_2", ""),
@@ -515,7 +525,7 @@ def main() -> None:
     machines = build_machines(data["modules_cfg"])
     add_recipes_to_machines(machines, lang)
 
-    out = {"com": num_com, "machines": list(machines.values())}
+    out = {"coms": [{"num": num_com, "machines": list(machines.values())}]}
     (OUT_DIR / "config_machines.json").write_text(
         json.dumps(out, ensure_ascii=False, indent=2),
         encoding="utf-8"
