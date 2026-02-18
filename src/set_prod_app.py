@@ -29,6 +29,8 @@ TRANSLATE = {
 }
 
 # Excel tables & columns
+CELL_EM_PREFIX = "B3"
+
 TABLE_SOMMAIRE = "T_Sommaire"
 COL_SOMMAIRE_MODULE = "N° Module"
 COL_SOMMAIRE_NUM_MACHINE = "N° Machine"
@@ -42,6 +44,7 @@ COL_DEFAUT_RESOLUTION_ARP = "Résolution ARP"
 COL_DEFAUT_RESOLUTION_CLIENT = "Résolution Client"
 
 TABLE_BYPASS = "T_RecapShunt"
+TABLE_BYPASS_EM_PREFIX = "T_Shunt_U"
 COL_BYPASS_NUM = "N°"
 COL_BYPASS_NUM_MODULE = "N° Module"
 COL_BYPASS_DESIGNATION_ARP = "Désignation ARP"
@@ -49,10 +52,13 @@ COL_BYPASS_DESIGNATION_CLIENT = "Désignation Client"
 COL_BYPASS_DESCRIPTION_ARP = "Description ARP"
 COL_BYPASS_DESCRIPTION_CLIENT = "Description Client"
 COL_BYPASS_ALIAS = "Repère"
+COL_BYPASS_ALIAS_EM = "Shunt"
+COL_BYPASS_ALIAS_EM_IN_EM = "Repère"
 COL_BYPASS_CHECK = "Check1"
 check_bypass_is_ok = lambda b: str(b.get(COL_BYPASS_CHECK, "")).strip().lower() in (1, "1", True, "true")
 
 TABLE_BUTTON = "T_RecapBtn"
+TABLE_BUTTON_EM_PREFIX = "T_Action_U"
 COL_BUTTON_NUM = "N°"
 COL_BUTTON_NUM_MODULE = "N° Module"
 COL_BUTTON_DESIGNATION_ARP = "Désignation ARP"
@@ -60,6 +66,8 @@ COL_BUTTON_DESIGNATION_CLIENT = "Désignation Client"
 COL_BUTTON_DESCRIPTION_ARP = "Description ARP"
 COL_BUTTON_DESCRIPTION_CLIENT = "Description Client"
 COL_BUTTON_ALIAS = "Repère"
+COL_BUTTON_ALIAS_EM = "Btn"
+COL_BUTTON_ALIAS_EM_IN_EM = "Repère"
 COL_BUTTON_CHECK = "Check1"
 check_button_is_ok = lambda b: str(b.get(COL_BUTTON_CHECK, "")).strip().lower() in (1, "1", True, "true")
 
@@ -120,15 +128,21 @@ def table_to_list(ws, table_name: str, wanted_columns: Optional[Iterable[str]] =
 def read_excel(excel_path: Path) -> Dict[str, Any]:
     """Lit toutes les feuilles et récupère : defauts, bypass, buttons, modules_cfg."""
     wb = load_workbook(excel_path, data_only=True)
-
     data = {
         "defauts": [],
         "bypass": [],
         "buttons": [],
+        "bypass_em": {},
+        "buttons_em": {},
         "modules_cfg": {},  # module -> cfg
     }
 
     for ws in wb.worksheets:
+
+        sheet_name = ws.title
+
+        sheet_em = ws[CELL_EM_PREFIX].value
+
         tables_in_sheet = list(ws.tables.keys())
 
         # Sommaire -> modules_cfg
@@ -161,6 +175,50 @@ def read_excel(excel_path: Path) -> Dict[str, Any]:
 
         if TABLE_BUTTON in tables_in_sheet:
             data["buttons"].extend(table_to_list(ws, TABLE_BUTTON))
+
+        data["bypass_em"][sheet_em] = {}
+        for table_name in [t for t in tables_in_sheet if t.startswith(TABLE_BYPASS_EM_PREFIX)]:
+            rows = table_to_list(ws, table_name)
+            for row in rows:
+                if not check_bypass_is_ok(row):
+                    continue
+                if not COL_BYPASS_ALIAS_EM_IN_EM in row:
+                    continue
+                data["bypass_em"][sheet_em][row[COL_BYPASS_ALIAS_EM_IN_EM]] = row
+
+        data["buttons_em"][sheet_em] = {}
+        for table_name in [t for t in tables_in_sheet if t.startswith(TABLE_BUTTON_EM_PREFIX)]:
+            rows = table_to_list(ws, table_name)
+            for row in rows:
+                if not check_button_is_ok(row):
+                    continue
+                if not COL_BUTTON_ALIAS_EM_IN_EM in row:
+                    continue
+                data["buttons_em"][sheet_em][row[COL_BUTTON_ALIAS_EM_IN_EM]] = row
+
+    # Complete buttons and bypass with EM data when possible
+    # Description is missing in the main tables but present in the EM tables, so we add it if we can find it via the alias/module
+    for b in data["bypass"]:
+        module = b.get(COL_BYPASS_NUM_MODULE)
+        alias = b.get(COL_BYPASS_ALIAS_EM)
+        if module and alias:
+            em_data = data["bypass_em"].get(module, {}).get(alias)
+            if em_data:
+                if em_data.get(COL_BYPASS_DESCRIPTION_ARP):
+                    b[COL_BYPASS_DESCRIPTION_ARP] = em_data[COL_BYPASS_DESCRIPTION_ARP]
+                if em_data.get(COL_BYPASS_DESCRIPTION_CLIENT):
+                    b[COL_BYPASS_DESCRIPTION_CLIENT] = em_data[COL_BYPASS_DESCRIPTION_CLIENT]
+
+    for b in data["buttons"]:
+        module = b.get(COL_BUTTON_NUM_MODULE)
+        alias = b.get(COL_BUTTON_ALIAS_EM)
+        if module and alias:
+            em_data = data["buttons_em"].get(module, {}).get(alias)
+            if em_data:
+                if em_data.get(COL_BUTTON_DESCRIPTION_ARP):
+                    b[COL_BUTTON_DESCRIPTION_ARP] = em_data[COL_BUTTON_DESCRIPTION_ARP]
+                if em_data.get(COL_BUTTON_DESCRIPTION_CLIENT):
+                    b[COL_BUTTON_DESCRIPTION_CLIENT] = em_data[COL_BUTTON_DESCRIPTION_CLIENT]
 
     return data
 
