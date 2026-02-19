@@ -11,10 +11,10 @@ from openpyxl import load_workbook
 # ============================================================
 
 BASE_ID_FAULT_DESCRIPTION = 1_00_00_000  # [1_00_00_000; 2_00_00_000[
-BASE_ID_BUTTON_TEXT = 2_00_01_000        # [2_00_01_000; 2_00_02_000[
-BASE_ID_BUTTON_DESCRIPTION = 2_00_02_000 # [2_00_02_000; 2_00_03_000[
-BASE_ID_BYPASS_TEXT = 2_00_03_000        # [2_00_03_000; 2_00_04_000[
-BASE_ID_BYPASS_DESCRIPTION = 2_00_04_000 # [2_00_04_000; 2_00_05_000[
+BASE_ID_BUTTON_TEXT = 2_00_01_000  # [2_00_01_000; 2_00_02_000[
+BASE_ID_BUTTON_DESCRIPTION = 2_00_02_000  # [2_00_02_000; 2_00_03_000[
+BASE_ID_BYPASS_TEXT = 2_00_03_000  # [2_00_03_000; 2_00_04_000[
+BASE_ID_BYPASS_DESCRIPTION = 2_00_04_000  # [2_00_04_000; 2_00_05_000[
 
 LANGUAGE_ARP = "arp"
 LANGUAGE_FR = "fr"
@@ -25,7 +25,7 @@ LANGUAGE_GR = "gr"
 
 TRANSLATE = {
     "defaut": {LANGUAGE_ARP: 0, LANGUAGE_FR: 0, LANGUAGE_EN: 1, LANGUAGE_ES: 2, LANGUAGE_DE: 3, LANGUAGE_GR: 4},
-    "bdd":    {LANGUAGE_ARP: 0, LANGUAGE_FR: 1, LANGUAGE_EN: 2, LANGUAGE_ES: 3, LANGUAGE_DE: 4, LANGUAGE_GR: 5},
+    "bdd": {LANGUAGE_ARP: 0, LANGUAGE_FR: 1, LANGUAGE_EN: 2, LANGUAGE_ES: 3, LANGUAGE_DE: 4, LANGUAGE_GR: 5},
 }
 
 # Excel tables & columns
@@ -93,6 +93,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 # ============================================================
 # Utilitaires Excel
 # ============================================================
+
 
 def _normalize_header(value: Any) -> str:
     return "" if value is None else str(value).strip()
@@ -227,6 +228,7 @@ def read_excel(excel_path: Path) -> Dict[str, Any]:
 # I/O Console (ask_*)
 # ============================================================
 
+
 def ask_path(prompt: str, allowed_suffixes: Tuple[str, ...]) -> Optional[Path]:
     while True:
         path_str = input(prompt).strip().strip('"')
@@ -306,6 +308,7 @@ def ask_language() -> str:
 # Exports CSV (textes trad)
 # ============================================================
 
+
 def _csv_line(num_text: int, text: Optional[str]) -> str:
     safe = (text or "").replace('"', '""')  # escape simple CSV-like
     return f'{num_text}:"{safe}";'
@@ -356,7 +359,9 @@ def export_bypass_csv(bypass_list: List[Dict[str, Any]], num_lang: int, out_path
 
         # DESCRIPTION ARP / Client
         lines.append(_csv_line((id_ + BASE_ID_BYPASS_DESCRIPTION) * 100, b.get(COL_BYPASS_DESCRIPTION_ARP)))
-        lines.append(_csv_line((id_ + BASE_ID_BYPASS_DESCRIPTION) * 100 + num_lang, b.get(COL_BYPASS_DESCRIPTION_CLIENT)))
+        lines.append(
+            _csv_line((id_ + BASE_ID_BYPASS_DESCRIPTION) * 100 + num_lang, b.get(COL_BYPASS_DESCRIPTION_CLIENT))
+        )
 
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -381,7 +386,9 @@ def export_button_csv(buttons: List[Dict[str, Any]], num_lang: int, out_path: Pa
 
         # DESCRIPTION ARP / Client
         lines.append(_csv_line((id_ + BASE_ID_BUTTON_DESCRIPTION) * 100, b.get(COL_BUTTON_DESCRIPTION_ARP)))
-        lines.append(_csv_line((id_ + BASE_ID_BUTTON_DESCRIPTION) * 100 + num_lang, b.get(COL_BUTTON_DESCRIPTION_CLIENT)))
+        lines.append(
+            _csv_line((id_ + BASE_ID_BUTTON_DESCRIPTION) * 100 + num_lang, b.get(COL_BUTTON_DESCRIPTION_CLIENT))
+        )
 
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -389,6 +396,7 @@ def export_button_csv(buttons: List[Dict[str, Any]], num_lang: int, out_path: Pa
 # ============================================================
 # JSON config (buttons / bypass)
 # ============================================================
+
 
 def ensure_module_cfg(modules_cfg: Dict[str, Dict[str, Any]], module: str) -> Dict[str, Any]:
     """Si le module n'est pas dans modules_cfg, demande à l'utilisateur et l'ajoute."""
@@ -414,12 +422,14 @@ def build_buttons_bypass_json(data: Dict[str, Any], num_com: int) -> Dict[str, A
             continue
 
         cfg = ensure_module_cfg(modules_cfg, module)
-        json_bypasses.append({
-            JSON_BYPASS_NUM: bypass[COL_BYPASS_NUM],
-            JSON_BYPASS_NUM_MACHINE: cfg["num_machine"],
-            JSON_BYPASS_NUM_MODULE: cfg["num_module"],
-            JSON_BYPASS_ALIAS: f"{bypass.get(COL_BYPASS_ALIAS, '')}",
-        })
+        json_bypasses.append(
+            {
+                JSON_BYPASS_NUM: bypass[COL_BYPASS_NUM],
+                JSON_BYPASS_NUM_MACHINE: cfg["num_machine"],
+                JSON_BYPASS_NUM_MODULE: cfg["num_module"],
+                JSON_BYPASS_ALIAS: f"{bypass.get(COL_BYPASS_ALIAS, '')}",
+            }
+        )
 
     json_buttons = []
     for button in data["buttons"]:
@@ -433,12 +443,14 @@ def build_buttons_bypass_json(data: Dict[str, Any], num_com: int) -> Dict[str, A
             continue
 
         cfg = ensure_module_cfg(modules_cfg, module)
-        json_buttons.append({
-            JSON_BUTTON_NUM: button[COL_BUTTON_NUM],
-            JSON_BUTTON_NUM_MACHINE: cfg["num_machine"],
-            JSON_BUTTON_NUM_MODULE: cfg["num_module"],
-            JSON_BUTTON_ALIAS: f"{button.get(COL_BUTTON_ALIAS, '')}",
-        })
+        json_buttons.append(
+            {
+                JSON_BUTTON_NUM: button[COL_BUTTON_NUM],
+                JSON_BUTTON_NUM_MACHINE: cfg["num_machine"],
+                JSON_BUTTON_NUM_MODULE: cfg["num_module"],
+                JSON_BUTTON_ALIAS: f"{button.get(COL_BUTTON_ALIAS, '')}",
+            }
+        )
 
     return {"coms": [{"num": num_com, "buttons": json_buttons, "bypasses": json_bypasses}]}
 
@@ -459,6 +471,7 @@ LEFT JOIN TRAD_Format tf
 ORDER BY f.Numero, tf.Langue;
 """
 
+
 def fetch_recipes(db_path: Path) -> List[Tuple[Any, Any, Any, Any]]:
     with sqlite3.connect(db_path) as conn:
         cur = conn.cursor()
@@ -469,7 +482,7 @@ def fetch_recipes(db_path: Path) -> List[Tuple[Any, Any, Any, Any]]:
 def build_recipes(rows: List[Tuple[Any, Any, Any, Any]], num_lang_bdd: int) -> List[Dict[str, Any]]:
     recipes: Dict[int, Dict[str, Any]] = {}
 
-    for (numero, actif, langue, nom) in rows:
+    for numero, actif, langue, nom in rows:
         if numero is None:
             continue
 
@@ -499,6 +512,11 @@ def build_recipes(rows: List[Tuple[Any, Any, Any, Any]], num_lang_bdd: int) -> L
 # JSON machines
 # ============================================================
 
+
+def capitalize(str):
+    return str[:1].upper() + str[1:]
+
+
 def build_machines(modules_cfg: Dict[str, Dict[str, Any]]) -> Dict[int, Dict[str, Any]]:
     """Regroupe les modules par machine et demande le nom machine une fois."""
     machines: Dict[int, Dict[str, Any]] = {}
@@ -508,22 +526,24 @@ def build_machines(modules_cfg: Dict[str, Dict[str, Any]]) -> Dict[int, Dict[str
         if num_machine not in machines:
             machines[num_machine] = {
                 "num": num_machine,
-                "name_1": ask_input_str(f"Nom de la machine n°{num_machine} (langue 1) : "),
-                "name_2": ask_input_str(f"Nom de la machine n°{num_machine} (langue 2) : "),
+                "name_1": capitalize(ask_input_str(f"Nom de la machine n°{num_machine} (langue 1) : ")),
+                "name_2": capitalize(ask_input_str(f"Nom de la machine n°{num_machine} (langue 2) : ")),
                 "name_3": "",
                 "ems": [],
             }
 
-        machines[num_machine]["ems"].append({
-            "num": cfg["num_module"],
-            "name_1": cfg.get("nom_langue_1", ""),
-            "name_2": cfg.get("nom_langue_2", ""),
-            "name_3": "",
-            "nb_in_machine": cfg["num_module"],
-            "utility": 0,
-            "checked": True,
-            "axs": {},
-        })
+        machines[num_machine]["ems"].append(
+            {
+                "num": cfg["num_module"],
+                "name_1": f"{module} - {capitalize(cfg.get('nom_langue_1', ''))}",
+                "name_2": f"{module} - {capitalize(cfg.get('nom_langue_2', ''))}",
+                "name_3": f"{module} - {capitalize(cfg.get('nom_langue_3', ''))}",
+                "nb_in_machine": cfg["num_module"],
+                "utility": 0,
+                "checked": True,
+                "axs": {},
+            }
+        )
 
     return machines
 
@@ -551,6 +571,7 @@ def add_recipes_to_machines(machines: Dict[int, Dict[str, Any]], lang: str) -> N
 # Main
 # ============================================================
 
+
 def main() -> None:
     excel_path = ask_excel_file()
     if not excel_path:
@@ -573,10 +594,7 @@ def main() -> None:
     print("Construction du JSON machines + buttons/bypass...")
     num_com = ask_input_int("Numéro de COM : ")
     j = build_buttons_bypass_json(data, num_com)
-    (OUT_DIR / "config_button_bypass.json").write_text(
-        json.dumps(j, ensure_ascii=False, indent=2),
-        encoding="utf-8"
-    )
+    (OUT_DIR / "config_button_bypass.json").write_text(json.dumps(j, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # JSON machines + recipes
     print("Construction du JSON machines + recipes...")
@@ -584,11 +602,7 @@ def main() -> None:
     add_recipes_to_machines(machines, lang)
 
     out = {"coms": [{"num": num_com, "machines": list(machines.values())}]}
-    (OUT_DIR / "config_machines.json").write_text(
-        json.dumps(out, ensure_ascii=False, indent=2),
-        encoding="utf-8"
-    )
-
+    (OUT_DIR / "config_machines.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":
