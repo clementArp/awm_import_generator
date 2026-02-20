@@ -71,6 +71,22 @@ COL_BUTTON_ALIAS_EM_IN_EM = "Repère"
 COL_BUTTON_CHECK = "Check1"
 check_button_is_ok = lambda b: str(b.get(COL_BUTTON_CHECK, "")).strip().lower() in (1, "1", True, "true")
 
+TABLE_STATE = "T_Prod_State"
+COL_STATE_MACHINE = "Machine"
+COL_STATE_BIT = "Bit"
+COL_STATE_NAME_FR = "Name FR"
+COL_STATE_NAME_EN = "Name EN"
+COL_STATE_TYPE = "Type"
+COL_STATE_COLOR = "Color"
+
+TABLE_COUNTER = "T_Prod_Counter"
+COL_COUNTER_MACHINE = "Machine"
+COL_COUNTER_NUM = "Num"
+COL_COUNTER_NAME_FR = "Name FR"
+COL_COUNTER_NAME_EN = "Name EN"
+COL_COUNTER_UNIT_FR = "Unit FR"
+COL_COUNTER_UNIT_EN = "Unit EN"
+
 # JSON keys
 JSON_BYPASS_NUM = "num"
 JSON_BYPASS_NUM_MACHINE = "num_machine"
@@ -136,6 +152,8 @@ def read_excel(excel_path: Path) -> Dict[str, Any]:
         "bypass_em": {},
         "buttons_em": {},
         "modules_cfg": {},  # module -> cfg
+        "states": [],
+        "counters": [],
     }
 
     for ws in wb.worksheets:
@@ -145,6 +163,8 @@ def read_excel(excel_path: Path) -> Dict[str, Any]:
         sheet_em = ws[CELL_EM_PREFIX].value
 
         tables_in_sheet = list(ws.tables.keys())
+
+        print(sheet_name, "-> tables:", tables_in_sheet)
 
         # Sommaire -> modules_cfg
         if TABLE_SOMMAIRE in tables_in_sheet:
@@ -176,6 +196,12 @@ def read_excel(excel_path: Path) -> Dict[str, Any]:
 
         if TABLE_BUTTON in tables_in_sheet:
             data["buttons"].extend(table_to_list(ws, TABLE_BUTTON))
+
+        if TABLE_STATE in tables_in_sheet:
+            data["states"].extend(table_to_list(ws, TABLE_STATE))
+
+        if TABLE_COUNTER in tables_in_sheet:
+            data["counters"].extend(table_to_list(ws, TABLE_COUNTER))
 
         data["bypass_em"][sheet_em] = {}
         for table_name in [t for t in tables_in_sheet if t.startswith(TABLE_BYPASS_EM_PREFIX)]:
@@ -567,6 +593,72 @@ def add_recipes_to_machines(machines: Dict[int, Dict[str, Any]], lang: str) -> N
         machine["recipes"] = build_recipes(rows, num_lang_bdd)
 
 
+def add_states_to_machines(machines: Dict[int, Dict[str, Any]], states: List[Dict[str, Any]]) -> None:
+    """Ajoute les states à la machine correspondante selon le nom de la machine dans l'Excel."""
+    for state in states:
+
+        try:
+            state_machine_num = int(state.get(COL_STATE_MACHINE, -1))
+        except (TypeError, ValueError):
+            print(
+                f"State '{state.get(COL_STATE_NAME_FR, '')}' : numéro de machine invalide : {state.get(COL_STATE_MACHINE)}"
+            )
+            continue
+
+        for num_machine, machine in machines.items():
+            if num_machine == state_machine_num:
+                if "states" not in machine:
+                    machine["states"] = []
+
+                machine["states"].append(
+                    {
+                        "bit": state.get(COL_STATE_BIT),
+                        "type": state.get(COL_STATE_TYPE, ""),
+                        "color": state.get(COL_STATE_COLOR, ""),
+                        "locale": [
+                            {"language_code": "fr", "name": state.get(COL_STATE_NAME_FR, "")},
+                            {"language_code": "en", "name": state.get(COL_STATE_NAME_EN, "")},
+                        ],
+                    }
+                )
+                break
+
+
+def add_counters_to_machines(machines: Dict[int, Dict[str, Any]], counters: List[Dict[str, Any]]) -> None:
+    """Ajoute les counters à la machine correspondante selon le nom de la machine dans l'Excel."""
+    for counter in counters:
+        try:
+            counter_machine_num = int(counter.get(COL_COUNTER_MACHINE, -1))  # type: ignore
+        except (TypeError, ValueError):
+            print(
+                f"Counter '{counter.get(COL_COUNTER_NAME_FR, '')}' : numéro de machine invalide : {counter.get(COL_COUNTER_MACHINE)}"
+            )
+            continue
+        for num_machine, machine in machines.items():
+            if num_machine == counter_machine_num:
+                if "counters" not in machine:
+                    machine["counters"] = []
+
+                machine["counters"].append(
+                    {
+                        "num": counter.get(COL_COUNTER_NUM),
+                        "locale": [
+                            {
+                                "language_code": "fr",
+                                "name": counter.get(COL_COUNTER_NAME_FR, ""),
+                                "unit": counter.get(COL_COUNTER_UNIT_FR, ""),
+                            },
+                            {
+                                "language_code": "en",
+                                "name": counter.get(COL_COUNTER_NAME_EN, ""),
+                                "unit": counter.get(COL_COUNTER_UNIT_EN, ""),
+                            },
+                        ],
+                    }
+                )
+                break
+
+
 # ============================================================
 # Main
 # ============================================================
@@ -600,6 +692,8 @@ def main() -> None:
     print("Construction du JSON machines + recipes...")
     machines = build_machines(data["modules_cfg"])
     add_recipes_to_machines(machines, lang)
+    add_states_to_machines(machines, data["states"])
+    add_counters_to_machines(machines, data["counters"])
 
     out = {"coms": [{"num": num_com, "machines": list(machines.values())}]}
     (OUT_DIR / "config_machines.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
