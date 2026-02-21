@@ -87,6 +87,12 @@ COL_COUNTER_NAME_EN = "Name EN"
 COL_COUNTER_UNIT_FR = "Unit FR"
 COL_COUNTER_UNIT_EN = "Unit EN"
 
+TABLE_CHART = "T_Prod_Chart"
+COL_CHART_MACHINE = "Machine"
+COL_CHART_NUM = "Chart"
+COL_CHART_COUNTER = "Counter"
+COL_CHART_COLOR = "Color"
+
 # JSON keys
 JSON_BYPASS_NUM = "num"
 JSON_BYPASS_NUM_MACHINE = "num_machine"
@@ -154,6 +160,7 @@ def read_excel(excel_path: Path) -> Dict[str, Any]:
         "modules_cfg": {},  # module -> cfg
         "states": [],
         "counters": [],
+        "charts": [],
     }
 
     for ws in wb.worksheets:
@@ -202,6 +209,9 @@ def read_excel(excel_path: Path) -> Dict[str, Any]:
 
         if TABLE_COUNTER in tables_in_sheet:
             data["counters"].extend(table_to_list(ws, TABLE_COUNTER))
+
+        if TABLE_CHART in tables_in_sheet:
+            data["charts"].extend(table_to_list(ws, TABLE_CHART))
 
         data["bypass_em"][sheet_em] = {}
         for table_name in [t for t in tables_in_sheet if t.startswith(TABLE_BYPASS_EM_PREFIX)]:
@@ -659,6 +669,35 @@ def add_counters_to_machines(machines: Dict[int, Dict[str, Any]], counters: List
                 break
 
 
+def add_charts_to_machines(machines: Dict[int, Dict[str, Any]], charts: List[Dict[str, Any]]) -> None:
+    """Ajoute les charts à la machine correspondante selon le nom de la machine dans l'Excel."""
+    for chart in charts:
+        try:
+            chart_machine_num = int(chart.get(COL_CHART_MACHINE, -1))  # type: ignore
+        except (TypeError, ValueError):
+            print(
+                f"Chart '{chart.get(COL_CHART_NUM, '')}' : numéro de machine invalide : {chart.get(COL_CHART_MACHINE)}"
+            )
+            continue
+        for num_machine, machine in machines.items():
+            if num_machine == chart_machine_num:
+                if "charts" not in machine:
+                    machine["charts"] = {}
+                num_chart = chart.get(COL_CHART_NUM)
+                if not num_chart:
+                    continue
+                if not num_chart in machine["charts"]:
+                    machine["charts"][num_chart] = []
+
+                machine["charts"][num_chart].append(
+                    {
+                        "counter": chart.get(COL_CHART_COUNTER),
+                        "color": chart.get(COL_CHART_COLOR, ""),
+                    }
+                )
+                break
+
+
 # ============================================================
 # Main
 # ============================================================
@@ -694,7 +733,7 @@ def main() -> None:
     add_recipes_to_machines(machines, lang)
     add_states_to_machines(machines, data["states"])
     add_counters_to_machines(machines, data["counters"])
-
+    add_charts_to_machines(machines, data["charts"])
     out = {"coms": [{"num": num_com, "machines": list(machines.values())}]}
     (OUT_DIR / "config_machines.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
 
